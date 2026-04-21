@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="assets/icon.svg" width="160" alt="pct-svcscan"/>
+  <img src="assets/icon.svg" width="160" alt="pct-svcmap"/>
 
-  # pct-svcscan
+  # pct-svcmap
 
   **Proxmox VE Service Discovery & Metadata Engine**
 
@@ -36,9 +36,9 @@
 
 ## Overview
 
-`pct-svcscan` is a single-binary CLI tool that runs on a Proxmox VE node and builds a complete picture of what network services are running across your infrastructure. It speaks directly to `pvesh`, `pct`, and `qm` — no agent installation, no remote API tokens, no configuration files required.
+`pct-svcmap` is a single-binary CLI tool that runs on a Proxmox VE node and builds a complete picture of what network services are running across your infrastructure. It speaks directly to `pvesh`, `pct`, and `qm` — no agent installation, no remote API tokens, no configuration files required.
 
-For each LXC container and QEMU VM it finds, `pct-svcscan`:
+For each LXC container and QEMU VM it finds, `pct-svcmap`:
 
 1. Fetches all network interfaces and IPs
 2. Identifies every listening port, its process name, and PID
@@ -68,7 +68,7 @@ For each LXC container and QEMU VM it finds, `pct-svcscan`:
 ## Architecture
 
 ```
-cmd/pct-svcscan/
+cmd/pct-svcmap/
 └── main.go              CLI flags, wiring, summary table output
 
 proxmox/
@@ -137,7 +137,7 @@ NodeClient.ListLXC / ListQEMU
 | `pct` / `qm` | Bundled with Proxmox VE |
 | QEMU Guest Agent | Required for VM network/service scanning (optional; VMs without it are skipped gracefully) |
 
-> `pct-svcscan` executes commands directly inside guests via `pct exec` and `qm guest exec`. It does not require network access to the guests themselves.
+> `pct-svcmap` executes commands directly inside guests via `pct exec` and `qm guest exec`. It does not require network access to the guests themselves.
 
 ---
 
@@ -148,13 +148,13 @@ NodeClient.ListLXC / ListQEMU
 ```bash
 git clone https://github.com/richknowles/pct-svcmap.git
 cd pct-svcmap
-go build -o /usr/local/bin/pct-svcscan ./cmd/pct-svcscan/
+go build -o /usr/local/bin/pct-svcmap ./cmd/pct-svcmap/
 ```
 
 ### Verify
 
 ```bash
-pct-svcscan --help
+pct-svcmap --help
 ```
 
 ---
@@ -163,19 +163,19 @@ pct-svcscan --help
 
 ```bash
 # 1. Basic scan — prints a summary table of all running guests
-pct-svcscan
+pct-svcmap
 
 # 2. Full Markdown report
-pct-svcscan --report md
+pct-svcmap --report md
 
 # 3. JSON report, piped to jq
-pct-svcscan --report json | jq '.summary'
+pct-svcmap --report json | jq '.summary'
 
 # 4. Preview tags without writing anything
-pct-svcscan --tag --dry-run --verbose
+pct-svcmap --tag --dry-run --verbose
 
 # 5. Scan, tag, and save a report in one command
-pct-svcscan --tag --report md --output /root/svcmap.md
+pct-svcmap --tag --report md --output /root/svcmap.md
 ```
 
 ---
@@ -195,7 +195,7 @@ pct-svcscan --tag --report md --output /root/svcmap.md
 | `--include-stopped` | bool | `false` | Include stopped and paused guests in results (they appear as `skipped`) |
 | `--verbose` | bool | `false` | Write debug logging to stderr |
 
-> All output (report, summary table) goes to **stdout**. All logging goes to **stderr**. This means `pct-svcscan --report json | jq .` works cleanly.
+> All output (report, summary table) goes to **stdout**. All logging goes to **stderr**. This means `pct-svcmap --report json | jq .` works cleanly.
 
 ---
 
@@ -204,71 +204,71 @@ pct-svcscan --tag --report md --output /root/svcmap.md
 ### Scan a specific node
 
 ```bash
-pct-svcscan --node pve1
+pct-svcmap --node pve1
 ```
 
 ### Scan with more workers for large clusters
 
 ```bash
-pct-svcscan --node pve1 --workers 25
+pct-svcmap --node pve1 --workers 25
 ```
 
 ### Increase timeout for slow guests
 
 ```bash
-pct-svcscan --timeout 15
+pct-svcmap --timeout 15
 ```
 
 ### Filter to a subset of guests
 
 ```bash
 # Only guests whose names start with "prod-"
-pct-svcscan --filter "prod-*"
+pct-svcmap --filter "prod-*"
 
 # Only a specific guest
-pct-svcscan --filter "web-proxy"
+pct-svcmap --filter "web-proxy"
 ```
 
 ### Apply tags — dry run first, then commit
 
 ```bash
 # See what would change
-pct-svcscan --tag --dry-run --verbose 2>&1 | grep dry-run
+pct-svcmap --tag --dry-run --verbose 2>&1 | grep dry-run
 
 # Apply for real
-pct-svcscan --tag
+pct-svcmap --tag
 ```
 
 ### Save a Markdown report
 
 ```bash
-pct-svcscan --report md --output /root/reports/$(date +%F)-svcmap.md
+pct-svcmap --report md --output /root/reports/$(date +%F)-svcmap.md
 ```
 
 ### Export JSON and query with jq
 
 ```bash
 # All guests running Docker
-pct-svcscan --report json | jq '.guests[] | select(.docker_available)'
+pct-svcmap --report json | jq '.guests[] | select(.docker_available)'
 
 # All risky services
-pct-svcscan --report json | jq '.guests[].services[] | select(.is_risky)'
+pct-svcmap --report json | jq '.guests[].services[] | select(.is_risky)'
 
 # Summary only
-pct-svcscan --report json | jq '.summary'
+pct-svcmap --report json | jq '.summary'
 ```
 
 ### Scan stopped guests too
 
 ```bash
-pct-svcscan --include-stopped --report md
+pct-svcmap --include-stopped --report md
 ```
 
 ---
 
 ## Service Detection
 
-For each running guest, `pct-svcscan` tries three methods in order, using the first that succeeds:
+For each running guest, `pct-svcmap` tries three methods in order, using the first that succeeds:
 
 ### 1. `ss -Htupln` (preferred)
 
@@ -293,7 +293,7 @@ The method used is recorded per-guest in both the Markdown and JSON reports (`de
 
 ## Auto-Tagging
 
-When `--tag` is passed, `pct-svcscan` generates semantic tags from each scan result and merges them into the existing Proxmox guest tag string using `pvesh set .../config --tags`.
+When `--tag` is passed, `pct-svcmap` generates semantic tags from each scan result and merges them into the existing Proxmox guest tag string using `pvesh set .../config --tags`.
 
 ### Port-based tags
 
@@ -348,7 +348,7 @@ Existing user-defined tags are **never removed or overwritten**.
 ### Dry-run mode
 
 ```bash
-pct-svcscan --tag --dry-run --verbose
+pct-svcmap --tag --dry-run --verbose
 ```
 
 Logs a line for each guest that would change:
@@ -497,7 +497,7 @@ pct-svcmap/
 ├── assets/
 │   └── icon.svg                  Project icon
 ├── cmd/
-│   └── pct-svcscan/
+│   └── pct-svcmap/
 │       └── main.go               CLI entry point, flag wiring, summary table
 ├── proxmox/
 │   ├── client.go                 RunCommand with per-call context timeout

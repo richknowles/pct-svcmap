@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rightontron/pct-svcmap/scanner"
-	"github.com/rightontron/pct-svcmap/tagger"
+	"github.com/richknowles/pct-svcmap/scanner"
+	"github.com/richknowles/pct-svcmap/tagger"
 )
 
 // RenderMarkdown writes a full Markdown report to the provided writer.

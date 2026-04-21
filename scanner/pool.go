@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rightontron/pct-svcmap/proxmox"
+	"github.com/richknowles/pct-svcmap/proxmox"
 )
 
 // ScanAll enumerates all guests, filters them, then fans out to a worker pool.

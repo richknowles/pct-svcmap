@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/rightontron/pct-svcmap/proxmox"
+	"github.com/richknowles/pct-svcmap/proxmox"
 )
 
 // dockerPortRegexp matches host:port->containerPort/proto mappings.
