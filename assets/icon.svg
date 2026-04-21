@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220" width="220" height="220">
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1c2a3a"/>
+      <stop offset="100%" stop-color="#0a0f18"/>
+    </radialGradient>
+    <radialGradient id="sweepGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#e57000" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#e57000" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="softGlow">
+      <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <clipPath id="circleClip">
+      <circle cx="110" cy="110" r="104"/>
+    </clipPath>
+  </defs>
+
+  <!-- Outer ring border -->
+  <circle cx="110" cy="110" r="107" fill="#e57000" opacity="0.15"/>
+  <circle cx="110" cy="110" r="105" fill="#0a0f18"/>
+
+  <!-- Background fill -->
+  <circle cx="110" cy="110" r="104" fill="url(#bgGrad)"/>
+
+  <!-- Subtle grid lines -->
+  <g clip-path="url(#circleClip)" opacity="0.12" stroke="#e57000" stroke-width="0.5" fill="none">
+    <line x1="110" y1="6" x2="110" y2="214"/>
+    <line x1="6" y1="110" x2="214" y2="110"/>
+    <line x1="36" y1="36" x2="184" y2="184"/>
+    <line x1="184" y1="36" x2="36" y2="184"/>
+  </g>
+
+  <!-- Radar rings -->
+  <circle cx="110" cy="110" r="28"  fill="none" stroke="#e57000" stroke-width="0.7" opacity="0.45"/>
+  <circle cx="110" cy="110" r="55"  fill="none" stroke="#e57000" stroke-width="0.7" opacity="0.32"/>
+  <circle cx="110" cy="110" r="82"  fill="none" stroke="#e57000" stroke-width="0.7" opacity="0.22"/>
+
+  <!-- Radar sweep wedge (pointing upper-right, ~30°) -->
+  <!-- From center (110,110), to (110,28) [up], sweeping to approx (173, 55) -->
+  <path d="M110,110 L110,28 A82,82 0 0,1 173,55 Z"
+        fill="url(#sweepGrad)"
+        clip-path="url(#circleClip)"/>
+
+  <!-- Sweep arm line -->
+  <line x1="110" y1="110" x2="173" y2="55"
+        stroke="#e57000" stroke-width="1.8" opacity="0.85" filter="url(#softGlow)"/>
+
+  <!-- Tick mark at sweep tip -->
+  <circle cx="173" cy="55" r="3" fill="#e57000" opacity="0.9" filter="url(#softGlow)"/>
+
+  <!-- Network topology nodes -->
+
+  <!-- Node A – top centre (on inner ring) -->
+  <g filter="url(#glow)">
+    <circle cx="110" cy="55" r="5.5" fill="#e57000" opacity="0.95"/>
+    <circle cx="110" cy="55" r="9"   fill="none" stroke="#e57000" stroke-width="0.9" opacity="0.4"/>
+  </g>
+
+  <!-- Node B – right mid (on mid ring) -->
+  <g filter="url(#softGlow)">
+    <circle cx="161" cy="82" r="4.5" fill="#e57000" opacity="0.80"/>
+    <circle cx="161" cy="82" r="7.5" fill="none" stroke="#e57000" stroke-width="0.8" opacity="0.35"/>
+  </g>
+
+  <!-- Node C – right lower (near outer ring) -->
+  <g filter="url(#glow)">
+    <circle cx="158" cy="148" r="5.5" fill="#e57000" opacity="0.88"/>
+    <circle cx="158" cy="148" r="9"   fill="none" stroke="#e57000" stroke-width="0.9" opacity="0.38"/>
+  </g>
+
+  <!-- Node D – left lower (mid ring) -->
+  <g filter="url(#softGlow)">
+    <circle cx="64"  cy="145" r="4"   fill="#e57000" opacity="0.70"/>
+    <circle cx="64"  cy="145" r="7"   fill="none" stroke="#e57000" stroke-width="0.8" opacity="0.30"/>
+  </g>
+
+  <!-- Node E – left upper (inner ring) -->
+  <g filter="url(#softGlow)">
+    <circle cx="68"  cy="70"  r="3.5" fill="#e57000" opacity="0.60"/>
+  </g>
+
+  <!-- Node F – bottom mid (outer ring) -->
+  <g filter="url(#softGlow)">
+    <circle cx="110" cy="178" r="3.5" fill="#e57000" opacity="0.55"/>
+  </g>
+
+  <!-- Connection lines -->
+  <g stroke="#e57000" fill="none" clip-path="url(#circleClip)">
+    <line x1="110" y1="55"  x2="161" y2="82"  stroke-width="0.9" opacity="0.38"/>
+    <line x1="161" y1="82"  x2="158" y2="148" stroke-width="0.9" opacity="0.32"/>
+    <line x1="158" y1="148" x2="64"  y2="145" stroke-width="0.9" opacity="0.28"/>
+    <line x1="64"  y1="145" x2="68"  y2="70"  stroke-width="0.9" opacity="0.28"/>
+    <line x1="68"  y1="70"  x2="110" y2="55"  stroke-width="0.9" opacity="0.32"/>
+    <line x1="64"  y1="145" x2="110" y2="178" stroke-width="0.9" opacity="0.22"/>
+    <line x1="158" y1="148" x2="110" y2="178" stroke-width="0.9" opacity="0.22"/>
+    <line x1="110" y1="55"  x2="158" y2="148" stroke-width="0.5" opacity="0.15" stroke-dasharray="3,4"/>
+  </g>
+
+  <!-- Centre scanner origin -->
+  <circle cx="110" cy="110" r="5" fill="#e57000" filter="url(#glow)"/>
+  <circle cx="110" cy="110" r="9" fill="none" stroke="#e57000" stroke-width="1.2" opacity="0.55"/>
+  <circle cx="110" cy="110" r="14" fill="none" stroke="#e57000" stroke-width="0.6" opacity="0.30"/>
+
+  <!-- Outer decorative border ring -->
+  <circle cx="110" cy="110" r="105" fill="none" stroke="#e57000" stroke-width="1.5" opacity="0.55"/>
+  <circle cx="110" cy="110" r="108" fill="none" stroke="#e57000" stroke-width="0.5" opacity="0.20"/>
+</svg>
