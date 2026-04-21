@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/rightontron/pct-svcmap/scanner"
+	"github.com/richknowles/pct-svcmap/scanner"
 )
 
 // portTags maps well-known ports to semantic tag names.

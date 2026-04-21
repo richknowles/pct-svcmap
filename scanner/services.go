@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/rightontron/pct-svcmap/proxmox"
+	"github.com/richknowles/pct-svcmap/proxmox"
 )
 
 var ssUsersRegexp = regexp.MustCompile(`\("([^"]+)",pid=(\d+)`)
