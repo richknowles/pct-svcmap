@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rightontron/pct-svcmap/proxmox"
-	"github.com/rightontron/pct-svcmap/reporter"
-	"github.com/rightontron/pct-svcmap/scanner"
-	"github.com/rightontron/pct-svcmap/tagger"
+	"github.com/richknowles/pct-svcmap/proxmox"
+	"github.com/richknowles/pct-svcmap/reporter"
+	"github.com/richknowles/pct-svcmap/scanner"
+	"github.com/richknowles/pct-svcmap/tagger"
 )
 
 func main() {

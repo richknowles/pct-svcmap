@@ -5,8 +5,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/rightontron/pct-svcmap/scanner"
-	"github.com/rightontron/pct-svcmap/tagger"
+	"github.com/richknowles/pct-svcmap/scanner"
+	"github.com/richknowles/pct-svcmap/tagger"
 )
 
 // JSONReport is the complete JSON output schema.
