@@ -8,6 +8,18 @@ import (
 	"github.com/richknowles/pct-svcmap/scanner"
 )
 
+// TagCategory defines the category for tag generation.
+type TagCategory string
+
+const (
+	CategoryAll     TagCategory = "all"
+	CategoryType    TagCategory = "type"
+	CategoryPorts   TagCategory = "ports"
+	CategoryDocker  TagCategory = "docker"
+	CategorySecurity TagCategory = "security"
+	CategoryNetwork TagCategory = "network"
+)
+
 // portTags maps well-known ports to semantic tag names.
 var portTags = map[int]string{
 	21:    "ftp",
@@ -35,48 +47,84 @@ var portTags = map[int]string{
 }
 
 // GenerateTags derives new tags from a GuestScanResult.
+// The category parameter controls which tags to generate.
 // Returns only newly generated tags; merging with existing is done in merge.go.
-func GenerateTags(result scanner.GuestScanResult) []string {
+func GenerateTags(result scanner.GuestScanResult, categories ...TagCategory) []string {
+	// Default to all categories if none specified
+	if len(categories) == 0 {
+		categories = []TagCategory{CategoryAll}
+	}
+
+	hasCategory := func(c TagCategory) bool {
+		for _, cat := range categories {
+			if cat == CategoryAll || cat == c {
+				return true
+			}
+		}
+		return false
+	}
+
 	set := map[string]bool{}
 
-	// Guest type tag
-	if result.GuestType == "lxc" {
-		set["lxc"] = true
-	} else {
-		set["vm"] = true
-	}
-
-	// Port-based tags
-	for _, svc := range result.Services {
-		if tag, ok := portTags[svc.Port]; ok {
-			set[tag] = true
+	// Guest type tag (category: type)
+	if hasCategory(CategoryType) || hasCategory(CategoryAll) {
+		if result.GuestType == "lxc" {
+			set["lxc"] = true
+		} else {
+			set["vm"] = true
 		}
 	}
 
-	// Docker host tag
-	if result.DockerAvailable {
-		set["docker"] = true
-		for _, tag := range TagsFromDockerContainers(result.DockerContainers) {
-			set[tag] = true
+	// Port-based tags (category: ports)
+	if hasCategory(CategoryPorts) || hasCategory(CategoryAll) {
+		for _, svc := range result.Services {
+			if tag, ok := portTags[svc.Port]; ok {
+				set[tag] = true
+			}
+			// Add IP-based tags (first IP as tag)
+			if len(result.IPs) > 0 {
+				set[result.IPs[0]] = true
+			}
 		}
 	}
 
-	// Risky service tag
-	for _, svc := range result.Services {
-		if svc.IsRisky {
-			set["risky"] = true
-			break
+	// Docker host tag (category: docker)
+	if hasCategory(CategoryDocker) || hasCategory(CategoryAll) {
+		if result.DockerAvailable {
+			set["docker"] = true
+			for _, tag := range TagsFromDockerContainers(result.DockerContainers) {
+				set[tag] = true
+			}
 		}
 	}
 
-	// Multi-IP tag
-	if len(result.IPs) > 1 {
-		set["multi-ip"] = true
+	// Security tags (category: security)
+	if hasCategory(CategorySecurity) || hasCategory(CategoryAll) {
+		for _, svc := range result.Services {
+			if svc.IsRisky {
+				set["risky"] = true
+				// Add severity tags
+				if svc.Severity == "CRITICAL" {
+					set["critical"] = true
+				} else if svc.Severity == "HIGH" {
+					set["high-risk"] = true
+				}
+				break
+			}
+		}
 	}
 
-	// No-agent tag for QEMU guests without a responding agent
-	if result.GuestType == "qemu" && !result.AgentAvailable {
-		set["no-agent"] = true
+	// Network tags (category: network)
+	if hasCategory(CategoryNetwork) || hasCategory(CategoryAll) {
+		// Multi-IP tag
+		if len(result.IPs) > 1 {
+			set["multi-ip"] = true
+		}
+
+		// No-agent tag for QEMU guests without a responding agent
+		if result.GuestType == "qemu" && !result.AgentAvailable {
+			set["no-agent"] = true
+		}
 	}
 
 	return deduplicateTags(setToSlice(set))

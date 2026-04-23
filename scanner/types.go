@@ -2,6 +2,16 @@ package scanner
 
 import "time"
 
+// Severity levels for risky services.
+type Severity string
+
+const (
+	SeverityCritical Severity = "CRITICAL"
+	SeverityHigh     Severity = "HIGH"
+	SeverityMedium   Severity = "MEDIUM"
+	SeverityLow     Severity = "LOW"
+)
+
 // Service represents a single listening network service on a guest.
 type Service struct {
 	Protocol    string
@@ -11,6 +21,7 @@ type Service struct {
 	PID         int
 	IsRisky     bool
 	RiskReason  string
+	Severity    Severity
 }
 
 // DockerPort is one published port mapping from a Docker container.

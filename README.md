@@ -48,6 +48,43 @@ For each LXC container and QEMU VM it finds, `pct-svcmap`:
 
 ---
 
+## CLI Reference
+
+```
+$ pct-svcmap --help
+Usage of ./pct-svcmap:
+  -dry-run
+    	Show tags that would be applied (requires --tag)
+  -filter string
+    	Filter by guest name glob pattern (filepath.Match)
+  -include-stopped
+    	Include stopped/paused guests
+  -nmap string
+    	Nmap scan mode: quick, default, full
+  -nmap-target string
+    	Target for nmap scan (default "localhost")
+  -node string
+    	Proxmox node name (default "localhost")
+  -output string
+    	Write report to file (default: stdout)
+  -report string
+    	Output format: md, json, summary, security, security-full
+  -report-format string
+    	Report format when using summary/security: md or json (default "md")
+  -tag
+    	Apply auto-generated tags to guests
+  -tag-categories string
+    	Tag categories: all, type, ports, docker, security, network (default "all")
+  -timeout int
+    	Per-exec timeout in seconds (default 5)
+  -verbose
+    	Verbose logging to stderr
+  -workers int
+    	Concurrent worker count (default 10)
+```
+
+---
+
 ## Features
 
 - **Concurrent scanning** — configurable goroutine worker pool scans all guests simultaneously
@@ -363,6 +400,16 @@ No `pvesh set` calls are made.
 ---
 
 ## Reports
+
+### Report Types
+
+| Flag | Description |
+|------|-------------|
+| `--report md` | Full Markdown report with summary, services, Docker containers |
+| `--report json` | Structured JSON for scripting/dashboards |
+| `--report summary` | Quick flat table: hostname, IP, port, service |
+| `--report security` | Security issues with severity + remediation |
+| `--report security-full` | Full audit: attack surface, risk scores, hardening roadmap |
 
 ### Markdown report (`--report md`)
 

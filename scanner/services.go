@@ -232,20 +232,32 @@ func hexToIP(hexStr string) (string, error) {
 	return fmt.Sprintf("%d.%d.%d.%d", b[3], b[2], b[1], b[0]), nil
 }
 
-var riskyPorts = map[int]string{
-	21:   "FTP — plaintext credentials",
-	23:   "Telnet — plaintext protocol",
-	3306: "MySQL — unencrypted, world-accessible",
-	5432: "PostgreSQL — unencrypted, world-accessible",
-	6379: "Redis — unauthenticated by default",
+var riskyPorts = map[int]riskyPortInfo{
+	21:   {Reason: "FTP — plaintext credentials", Severity: SeverityHigh, Remediation: "Disable or use SFTP/SSH"},
+	23:   {Reason: "Telnet — plaintext protocol", Severity: SeverityCritical, Remediation: "Disable immediately, use SSH instead"},
+	111:  {Reason: "RPCbind — no authentication", Severity: SeverityMedium, Remediation: "Disable or restrict to localhost"},
+	445:  {Reason: "SMB — legacy protocol with known vulnerabilities", Severity: SeverityHigh, Remediation: "Disable or firewall to trusted networks"},
+	2375: {Reason: "Docker API — unauthenticated, remote code execution risk", Severity: SeverityCritical, Remediation: "Bind to 127.0.0.1 or enable TLS with mutual auth"},
+	3306: {Reason: "MySQL — unencrypted, world-accessible", Severity: SeverityHigh, Remediation: "Bind to localhost or enable TLS"},
+	5432: {Reason: "PostgreSQL — unencrypted, world-accessible", Severity: SeverityHigh, Remediation: "Bind to localhost or enable TLS"},
+	6379: {Reason: "Redis — unauthenticated by default", Severity: SeverityCritical, Remediation: "Bind to localhost and enable requirepass"},
+	9200: {Reason: "Elasticsearch — no auth by default", Severity: SeverityCritical, Remediation: "Enable x-pack security or use firewall"},
+	27017: {Reason: "MongoDB — no auth by default", Severity: SeverityCritical, Remediation: "Enable authentication and bind to localhost"},
+}
+
+type riskyPortInfo struct {
+	Reason       string
+	Severity     Severity
+	Remediation  string
 }
 
 func flagRiskyServices(svcs []Service) []Service {
 	for i := range svcs {
-		if reason, ok := riskyPorts[svcs[i].Port]; ok {
+		if info, ok := riskyPorts[svcs[i].Port]; ok {
 			if svcs[i].BindAddr == "0.0.0.0" || svcs[i].BindAddr == "::" {
 				svcs[i].IsRisky = true
-				svcs[i].RiskReason = reason
+				svcs[i].RiskReason = info.Reason
+				svcs[i].Severity = info.Severity
 			}
 		}
 	}

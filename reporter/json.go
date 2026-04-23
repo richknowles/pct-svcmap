@@ -57,6 +57,7 @@ type JSONService struct {
 	PID         int    `json:"pid,omitempty"`
 	IsRisky     bool   `json:"is_risky"`
 	RiskReason  string `json:"risk_reason,omitempty"`
+	Severity    string `json:"severity,omitempty"`
 }
 
 // JSONDockerContainer is the JSON representation of a Docker container.
@@ -135,6 +136,7 @@ func toJSONGuest(r scanner.GuestScanResult, hasDiff bool, diff tagger.TagDiff) J
 			Port: s.Port, Protocol: s.Protocol, BindAddr: s.BindAddr,
 			ProcessName: s.ProcessName, PID: s.PID,
 			IsRisky: s.IsRisky, RiskReason: s.RiskReason,
+			Severity: string(s.Severity),
 		}
 	}
 
