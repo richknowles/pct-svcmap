@@ -81,6 +81,10 @@ Usage of ./pct-svcmap:
     	Verbose logging to stderr
   -workers int
     	Concurrent worker count (default 10)
+  -check-update
+    	Check for new version on GitHub
+  -self-update
+    	Download and install latest release
 ```
 
 ---

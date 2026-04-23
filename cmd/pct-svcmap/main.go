@@ -3,8 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -15,8 +18,11 @@ import (
 	"github.com/richknowles/pct-svcmap/tagger"
 )
 
+const currentVersion = "v1.1"
+const repoURL = "https://github.com/richknowles/pct-svcmap"
+
 func main() {
-nodeFlag := flag.String("node", defaultHostname(), "Proxmox node name")
+	nodeFlag := flag.String("node", defaultHostname(), "Proxmox node name")
 	workersFlag := flag.Int("workers", 10, "Concurrent worker count")
 	timeoutFlag := flag.Int("timeout", 5, "Per-exec timeout in seconds")
 	reportFlag := flag.String("report", "", "Output format: md, json, summary, security, security-full")
@@ -30,16 +36,28 @@ nodeFlag := flag.String("node", defaultHostname(), "Proxmox node name")
 	verboseFlag := flag.Bool("verbose", false, "Verbose logging to stderr")
 	nmapFlag := flag.String("nmap", "", "Nmap scan mode: quick, default, full")
 	nmapTargetFlag := flag.String("nmap-target", "localhost", "Target for nmap scan")
+	checkUpdateFlag := flag.Bool("check-update", false, "Check for new version on GitHub")
+	selfUpdateFlag := flag.Bool("self-update", false, "Download and install latest release")
 
 	flag.Parse()
+
+	// Handle check-update flag early
+	if *checkUpdateFlag {
+		checkForUpdate()
+		return
+	}
+
+	// Handle self-update
+	if *selfUpdateFlag {
+		doSelfUpdate()
+		return
+	}
 
 	_ = nmapFlag
 	_ = nmapTargetFlag
 
 	// Parse tag categories
 	tagCategories := parseTagCategories(*tagCategoriesFlag)
-
-	// Validate report flag
 
 	// Validate report flag
 	validReports := map[string]bool{
@@ -259,4 +277,137 @@ func parseTagCategories(catStr string) []tagger.TagCategory {
 		return []tagger.TagCategory{tagger.CategoryAll}
 	}
 	return cats
+}
+
+func checkForUpdate() {
+	fmt.Printf("pct-svcmap %s\n", currentVersion)
+
+	// Without GitHub token, rate limits apply. Try the releases page instead.
+	resp, err := http.Get(repoURL + "/releases")
+	if err != nil {
+		fmt.Println("Could not fetch latest release:", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		fmt.Println("Could not fetch latest release")
+		return
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error reading response:", err)
+		return
+	}
+
+	// Look for the latest release tag in HTML
+	tagRe := regexp.MustCompile(`/releases/tag/(v[0-9.]+)"`)
+	m := tagRe.FindStringSubmatch(string(body))
+	if m != nil {
+		latest := strings.TrimPrefix(m[1], "v")
+		current := strings.TrimPrefix(currentVersion, "v")
+
+		if latest != current {
+			fmt.Printf("🔄 Update available: v%s → v%s\n", current, latest)
+			fmt.Printf("Download: %s/releases\n", repoURL)
+		} else {
+			fmt.Println("✅ You are running the latest version")
+		}
+		return
+	}
+
+	// Final fallback
+	fmt.Println("ℹ️  Latest version info unavailable (API rate limited)")
+	fmt.Println("👉 Check manually:", repoURL+"/releases")
+}
+
+func doSelfUpdate() {
+	fmt.Printf("pct-svcmap %s\n", currentVersion)
+	fmt.Println("Checking for updates...")
+
+	resp, err := http.Get(repoURL + "/releases")
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error reading response:", err)
+		return
+	}
+
+	// Find latest release asset
+	releaseRe := regexp.MustCompile(`/releases/download/(v[0-9.]+)/pct-svcmap"`)
+	m := releaseRe.FindStringSubmatch(string(body))
+
+	// Also try alternatives for different OS/arch
+	if m == nil {
+		// Try linux amd64
+		m = regexp.MustCompile(`/releases/download/(v[0-9.]+)/pct-svcmap"`).FindStringSubmatch(string(body))
+	}
+
+	if m == nil {
+		fmt.Println("❌ Could not find release download URL")
+		fmt.Println("👉 Visit", repoURL, "to download manually")
+		return
+	}
+
+	latest := m[1]
+	current := strings.TrimPrefix(currentVersion, "v")
+
+	if latest == current {
+		fmt.Println("✅ You are running the latest version")
+		return
+	}
+
+	fmt.Printf("🔄 Updating from v%s to v%s\n", current, latest)
+
+	downloadURL := fmt.Sprintf("%s/releases/download/%s/pct-svcmap", repoURL, latest)
+
+	// Download to temp file
+	tmpFile := "/tmp/pct-svcmap-" + latest
+	resp2, err := http.Get(downloadURL)
+	if err != nil {
+		fmt.Println("Error downloading:", err)
+		return
+	}
+	defer resp2.Body.Close()
+
+	if resp2.StatusCode != http.StatusOK {
+		fmt.Println("Error: Download returned", resp2.StatusCode)
+		return
+	}
+
+	f, err := os.Create(tmpFile)
+	if err != nil {
+		fmt.Println("Error creating temp file:", err)
+		return
+	}
+	defer f.Close()
+
+	_, err = io.Copy(f, resp2.Body)
+	if err != nil {
+		fmt.Println("Error saving:", err)
+		return
+	}
+	f.Close()
+
+	// Make executable and replace
+	os.Chmod(tmpFile, 0755)
+
+	// Find current binary path
+	selfPath, err := os.Executable()
+	if err != nil {
+		selfPath = "/usr/local/bin/pct-svcmap"
+	}
+
+	backupPath := selfPath + ".bak"
+	os.Rename(selfPath, backupPath)
+	os.Rename(tmpFile, selfPath)
+
+	fmt.Printf("✅ Updated to v%s\n", latest)
+	fmt.Printf("Run pct-svcmap --check-update to verify\n")
 }
