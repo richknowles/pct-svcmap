@@ -51,40 +51,31 @@ For each LXC container and QEMU VM it finds, `pct-svcmap`:
 ## CLI Reference
 
 ```
-$ pct-svcmap --help
-Usage of ./pct-svcmap:
-  -dry-run
-    	Show tags that would be applied (requires --tag)
-  -filter string
-    	Filter by guest name glob pattern (filepath.Match)
-  -include-stopped
-    	Include stopped/paused guests
-  -nmap string
-    	Nmap scan mode: quick, default, full
-  -nmap-target string
-    	Target for nmap scan (default "localhost")
-  -node string
-    	Proxmox node name (default "localhost")
-  -output string
-    	Write report to file (default: stdout)
-  -report string
-    	Output format: md, json, summary, security, security-full
-  -report-format string
-    	Report format when using summary/security: md or json (default "md")
-  -tag
-    	Apply auto-generated tags to guests
-  -tag-categories string
-    	Tag categories: all, type, ports, docker, security, network (default "all")
-  -timeout int
-    	Per-exec timeout in seconds (default 5)
-  -verbose
-    	Verbose logging to stderr
-  -workers int
-    	Concurrent worker count (default 10)
-  -check-update
-    	Check for new version on GitHub
-  -self-update
-    	Download and install latest release
+USAGE: pct-svcmap [COMMAND] [ARGS] [OPTIONS]
+
+COMMANDS:
+  scan      Scan guests (default, no command needed)
+  check     Check for updates (alias: --check-update)
+  update    Update to latest (alias: --self-update)
+
+OPTIONS:
+  --node string     Proxmox node name (default: hostname)
+  --report string   Output format: md, json, summary, security, security-full
+  --tag            Apply auto-generated tags to guests
+  --filter string  Filter by guest name glob pattern
+  --help          Show this help message
+  --version       Show version info
+
+EXAMPLES:
+  pct-svcmap                           # Quick scan
+  pct-svcmap --report md               # Full markdown report
+  pct-svcmap --report security         # Security issues only
+  pct-svcmap --tag --filter "web-*"     # Tag web-* guests
+  pct-svcmap --check-update           # Check for updates
+
+Developed by: Rich Knowles rich@ajricardo.com
+Bugs? Please open a PR on GitHub: https://github.com/richknowles/pct-svcmap/issues
+Home page: https://github.com/richknowles/pct-svcmap
 ```
 
 ---

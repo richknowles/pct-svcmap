@@ -18,10 +18,43 @@ import (
 	"github.com/richknowles/pct-svcmap/tagger"
 )
 
-const currentVersion = "v1.1"
+const currentVersion = "v1.1.1"
 const repoURL = "https://github.com/richknowles/pct-svcmap"
+const authorName = "Rich Knowles"
+const authorEmail = "rich@ajricardo.com"
 
 func main() {
+	// Custom help output
+	flag.Usage = func() {
+		fmt.Printf(`USAGE: pct-svcmap [COMMAND] [ARGS] [OPTIONS]
+
+COMMANDS:
+  scan      Scan guests (default, no command needed)
+  check     Check for updates (alias: --check-update)
+  update    Update to latest (alias: --self-update)
+
+OPTIONS:
+  --node string     Proxmox node name (default: hostname)
+  --report string   Output format: md, json, summary, security, security-full
+  --tag            Apply auto-generated tags to guests
+  --filter string  Filter by guest name glob pattern
+  --help          Show this help message
+  --version       Show version info
+
+EXAMPLES:
+  pct-svcmap                           # Quick scan
+  pct-svcmap --report md               # Full markdown report
+  pct-svcmap --report security         # Security issues only
+  pct-svcmap --tag --filter "web-*"     # Tag web-* guests
+  pct-svcmap --check-update           # Check for updates
+
+Developed by: %s %s
+Bugs? Please open a PR on GitHub: %s
+Home page: %s
+
+`, authorName, authorEmail, repoURL+"/issues", repoURL)
+	}
+
 	nodeFlag := flag.String("node", defaultHostname(), "Proxmox node name")
 	workersFlag := flag.Int("workers", 10, "Concurrent worker count")
 	timeoutFlag := flag.Int("timeout", 5, "Per-exec timeout in seconds")
@@ -38,8 +71,42 @@ func main() {
 	nmapTargetFlag := flag.String("nmap-target", "localhost", "Target for nmap scan")
 	checkUpdateFlag := flag.Bool("check-update", false, "Check for new version on GitHub")
 	selfUpdateFlag := flag.Bool("self-update", false, "Download and install latest release")
+	versionFlag := flag.Bool("version", false, "Show version info")
 
 	flag.Parse()
+
+	// Handle --version flag early
+	if *versionFlag {
+		fmt.Printf("pct-svcmap %s\n", currentVersion)
+		fmt.Printf("Developed by: %s %s\n", authorName, authorEmail)
+		fmt.Printf("Home page: %s\n", repoURL)
+		return
+	}
+
+	// Handle --help flag early
+	if len(os.Args) > 1 && (os.Args[1] == "-h" || os.Args[1] == "--help") {
+		flag.Usage()
+		return
+	}
+
+	// Parse first arg as potential command
+	var command string
+	if len(os.Args) > 1 && !strings.HasPrefix(os.Args[1], "-") {
+		command = os.Args[1]
+		// Strip the command from os.Args for flag parsing
+		os.Args = append([]string{os.Args[0]}, os.Args[2:]...)
+		flag.Parse()
+	} else {
+		flag.Parse()
+	}
+
+	// Handle commands
+	switch command {
+	case "check":
+		*checkUpdateFlag = true
+	case "update":
+		*selfUpdateFlag = true
+	}
 
 	// Handle check-update flag early
 	if *checkUpdateFlag {
@@ -281,6 +348,10 @@ func parseTagCategories(catStr string) []tagger.TagCategory {
 
 func checkForUpdate() {
 	fmt.Printf("pct-svcmap %s\n", currentVersion)
+	fmt.Println("Developed by:", authorName, authorEmail)
+	fmt.Println()
+
+	// Without GitHub token, rate limits apply. Try the releases page instead.
 
 	// Without GitHub token, rate limits apply. Try the releases page instead.
 	resp, err := http.Get(repoURL + "/releases")
