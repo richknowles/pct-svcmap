@@ -45,22 +45,36 @@ func (c *NodeClient) ListQEMU() ([]QEMUGuest, error) {
 }
 
 // GetLXCIPs executes `ip -j addr` inside an LXC container and returns
-// all non-loopback IPv4 addresses.
+// all non-loopback IPv4 addresses. Falls back to `hostname -I` on BusyBox/Alpine.
 func (c *NodeClient) GetLXCIPs(vmid int) ([]string, error) {
 	data, err := c.ExecInLXC(vmid, "ip", "-j", "addr")
+	if err == nil {
+		if ips, parseErr := parseIPsFromLXC(data); parseErr == nil {
+			return ips, nil
+		}
+	}
+	// BusyBox (Alpine) doesn't support `ip -j`; fall back to hostname -I
+	data, err = c.ExecInLXC(vmid, "hostname", "-I")
 	if err != nil {
 		return nil, err
 	}
-	return parseIPsFromLXC(data)
+	return parseIPsFromHostname(data), nil
 }
 
-// GetQEMUIPs fetches IPs via qm guest network-get-interfaces.
+// GetQEMUIPs fetches IPs via the QEMU guest agent network interface query.
+// Tries the modern `qm guest cmd` form first, falls back to the legacy subcommand.
 func (c *NodeClient) GetQEMUIPs(vmid int) ([]string, error) {
-	data, err := RunCommand(c.Cfg, "qm", "guest", "network-get-interfaces",
-		fmt.Sprintf("%d", vmid),
+	data, err := RunCommand(c.Cfg, "qm", "guest", "cmd",
+		fmt.Sprintf("%d", vmid), "network-get-interfaces",
 	)
 	if err != nil {
-		return nil, err
+		// Legacy Proxmox versions: qm guest network-get-interfaces <vmid>
+		data, err = RunCommand(c.Cfg, "qm", "guest", "network-get-interfaces",
+			fmt.Sprintf("%d", vmid),
+		)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return parseIPsFromQEMU(data)
 }
@@ -110,10 +124,22 @@ func parseIPsFromLXC(data []byte) ([]string, error) {
 }
 
 func parseIPsFromQEMU(data []byte) ([]string, error) {
+	// qm guest cmd wraps the agent response: {"result": [...]}
+	var wrapped struct {
+		Result []QMNetInterface `json:"result"`
+	}
+	if err := json.Unmarshal(data, &wrapped); err == nil && len(wrapped.Result) > 0 {
+		return extractQEMUIPs(wrapped.Result), nil
+	}
+	// Legacy qm guest network-get-interfaces returns the array directly
 	var ifaces []QMNetInterface
 	if err := json.Unmarshal(data, &ifaces); err != nil {
 		return nil, fmt.Errorf("parse qm net: %w", err)
 	}
+	return extractQEMUIPs(ifaces), nil
+}
+
+func extractQEMUIPs(ifaces []QMNetInterface) []string {
 	var ips []string
 	for _, iface := range ifaces {
 		for _, a := range iface.IPAddresses {
@@ -122,7 +148,18 @@ func parseIPsFromQEMU(data []byte) ([]string, error) {
 			}
 		}
 	}
-	return filterLoopback(ips), nil
+	return filterLoopback(ips)
+}
+
+// parseIPsFromHostname parses the space-separated output of `hostname -I`.
+func parseIPsFromHostname(data []byte) []string {
+	var ips []string
+	for _, p := range strings.Fields(string(data)) {
+		if !strings.Contains(p, ":") { // skip IPv6
+			ips = append(ips, p)
+		}
+	}
+	return filterLoopback(ips)
 }
 
 func filterLoopback(ips []string) []string {
