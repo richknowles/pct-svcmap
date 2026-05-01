@@ -15,6 +15,40 @@
 
 ---
 
+## Quick Reference
+
+```
+Usage of pct-svcmap:
+  -dry-run
+        Show tags that would be applied (requires --tag)
+  -filter string
+        Filter by guest name glob pattern (filepath.Match)
+  -format string
+        Output format for summary/security reports: md, json (default "md")
+  -include-stopped
+        Include stopped/paused guests
+  -nmap string
+        nmap cross-validation mode: quick, default, full
+  -node string
+        Proxmox node name (default: hostname)
+  -output string
+        Write report to file (default: stdout)
+  -report string
+        Report type: md, json, summary, security, security-full
+  -tag
+        Apply auto-generated tags to guests
+  -tag-categories string
+        Tag categories: type,ports,docker,security,network,all (default "all")
+  -timeout int
+        Per-exec timeout in seconds (default 5)
+  -verbose
+        Verbose logging to stderr
+  -workers int
+        Concurrent worker count (default 10)
+```
+
+---
+
 ## Table of Contents
 
 - [Overview](#overview)
@@ -187,10 +221,13 @@ pct-svcmap --tag --report md --output /root/svcmap.md
 | `--node` | string | system hostname | Proxmox node name to query |
 | `--workers` | int | `10` | Number of concurrent goroutines in the worker pool |
 | `--timeout` | int | `5` | Per-exec timeout in seconds (applied to every individual `pct`/`qm`/`pvesh` call) |
-| `--report` | string | _(none)_ | Output format: `md` or `json`. Omit for compact summary table |
+| `--report` | string | _(none)_ | Report type: `md`, `json`, `summary`, `security`, `security-full`. Omit for compact table |
+| `--format` | string | `md` | Output format for `summary`/`security`/`security-full` reports: `md` or `json` |
 | `--output` | string | stdout | Write report to this file path instead of stdout |
 | `--tag` | bool | `false` | Apply auto-generated tags to guest configs in Proxmox |
 | `--dry-run` | bool | `false` | Log tag diffs without writing (requires `--tag`) |
+| `--tag-categories` | string | `all` | Comma-separated tag categories to generate: `type`, `ports`, `docker`, `security`, `network`, `all` |
+| `--nmap` | string | _(off)_ | Cross-validate with nmap from Proxmox host: `quick` (top-100), `default` (top-1000), `full` (all ports) |
 | `--filter` | string | _(all)_ | `filepath.Match` glob to restrict scanning by guest name, e.g. `web-*` |
 | `--include-stopped` | bool | `false` | Include stopped and paused guests in results (they appear as `skipped`) |
 | `--verbose` | bool | `false` | Write debug logging to stderr |

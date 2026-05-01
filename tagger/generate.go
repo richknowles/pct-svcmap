@@ -8,6 +8,50 @@ import (
 	"github.com/richknowles/pct-svcmap/scanner"
 )
 
+// TagCategory controls which groups of tags are generated.
+type TagCategory string
+
+const (
+	CategoryType     TagCategory = "type"
+	CategoryPorts    TagCategory = "ports"
+	CategoryDocker   TagCategory = "docker"
+	CategorySecurity TagCategory = "security"
+	CategoryNetwork  TagCategory = "network"
+	CategoryAll      TagCategory = "all"
+)
+
+// ParseCategories parses a comma-separated category string.
+// Unknown values are silently ignored; empty or "all" returns []TagCategory{CategoryAll}.
+func ParseCategories(s string) []TagCategory {
+	s = strings.TrimSpace(s)
+	if s == "" || s == "all" {
+		return []TagCategory{CategoryAll}
+	}
+	parts := strings.Split(s, ",")
+	var cats []TagCategory
+	for _, p := range parts {
+		switch TagCategory(strings.TrimSpace(p)) {
+		case CategoryType, CategoryPorts, CategoryDocker, CategorySecurity, CategoryNetwork:
+			cats = append(cats, TagCategory(strings.TrimSpace(p)))
+		case CategoryAll:
+			return []TagCategory{CategoryAll}
+		}
+	}
+	if len(cats) == 0 {
+		return []TagCategory{CategoryAll}
+	}
+	return cats
+}
+
+func hasCategory(cats []TagCategory, want TagCategory) bool {
+	for _, c := range cats {
+		if c == CategoryAll || c == want {
+			return true
+		}
+	}
+	return false
+}
+
 // portTags maps well-known ports to semantic tag names.
 var portTags = map[int]string{
 	21:    "ftp",
@@ -34,49 +78,55 @@ var portTags = map[int]string{
 	27017: "mongodb",
 }
 
-// GenerateTags derives new tags from a GuestScanResult.
-// Returns only newly generated tags; merging with existing is done in merge.go.
-func GenerateTags(result scanner.GuestScanResult) []string {
+// GenerateTags derives new tags from a GuestScanResult filtered by categories.
+// Pass nil or []TagCategory{CategoryAll} to generate all tags.
+func GenerateTags(result scanner.GuestScanResult, categories []TagCategory) []string {
+	if len(categories) == 0 {
+		categories = []TagCategory{CategoryAll}
+	}
 	set := map[string]bool{}
 
-	// Guest type tag
-	if result.GuestType == "lxc" {
-		set["lxc"] = true
-	} else {
-		set["vm"] = true
-	}
-
-	// Port-based tags
-	for _, svc := range result.Services {
-		if tag, ok := portTags[svc.Port]; ok {
-			set[tag] = true
+	if hasCategory(categories, CategoryType) {
+		if result.GuestType == "lxc" {
+			set["lxc"] = true
+		} else {
+			set["vm"] = true
+		}
+		if result.GuestType == "qemu" && !result.AgentAvailable {
+			set["no-agent"] = true
 		}
 	}
 
-	// Docker host tag
-	if result.DockerAvailable {
-		set["docker"] = true
-		for _, tag := range TagsFromDockerContainers(result.DockerContainers) {
-			set[tag] = true
+	if hasCategory(categories, CategoryPorts) {
+		for _, svc := range result.Services {
+			if tag, ok := portTags[svc.Port]; ok {
+				set[tag] = true
+			}
 		}
 	}
 
-	// Risky service tag
-	for _, svc := range result.Services {
-		if svc.IsRisky {
-			set["risky"] = true
-			break
+	if hasCategory(categories, CategoryDocker) {
+		if result.DockerAvailable {
+			set["docker"] = true
+			for _, tag := range TagsFromDockerContainers(result.DockerContainers) {
+				set[tag] = true
+			}
 		}
 	}
 
-	// Multi-IP tag
-	if len(result.IPs) > 1 {
-		set["multi-ip"] = true
+	if hasCategory(categories, CategorySecurity) {
+		for _, svc := range result.Services {
+			if svc.IsRisky {
+				set["risky"] = true
+				break
+			}
+		}
 	}
 
-	// No-agent tag for QEMU guests without a responding agent
-	if result.GuestType == "qemu" && !result.AgentAvailable {
-		set["no-agent"] = true
+	if hasCategory(categories, CategoryNetwork) {
+		if len(result.IPs) > 1 {
+			set["multi-ip"] = true
+		}
 	}
 
 	return deduplicateTags(setToSlice(set))

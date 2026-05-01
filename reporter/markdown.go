@@ -88,11 +88,12 @@ func RenderMarkdown(w io.Writer, results []scanner.GuestScanResult,
 	_ = riskyRows
 	if len(riskyEntries) > 0 {
 		p("## Security Warnings\n\n")
-		p("| Guest | VMID | Port | Protocol | Bind | Risk |\n|---|---|---|---|---|---|\n")
+		p("| Guest | VMID | Port | Protocol | Bind | Severity | Risk | Remediation |\n|---|---|---|---|---|---|---|---|\n")
 		for _, e := range riskyEntries {
-			p("| %s | %d | %d | %s | %s | %s |\n",
+			p("| %s | %d | %d | %s | %s | %s | %s | %s |\n",
 				mdSafe(e.guest), e.vmid, e.svc.Port,
-				e.svc.Protocol, e.svc.BindAddr, mdSafe(e.svc.RiskReason))
+				e.svc.Protocol, e.svc.BindAddr, string(e.svc.RiskLevel),
+				mdSafe(e.svc.RiskReason), mdSafe(e.svc.Remediation))
 		}
 		p("\n")
 	}
@@ -126,18 +127,20 @@ func RenderMarkdown(w io.Writer, results []scanner.GuestScanResult,
 
 		if len(r.Services) > 0 {
 			p("#### Services\n\n")
-			p("| Port | Proto | Bind | Process | Risk |\n|---|---|---|---|---|\n")
+			p("| Port | Proto | Bind | Process | Severity | Risk |\n|---|---|---|---|---|---|\n")
 			for _, s := range r.Services {
 				proc := s.ProcessName
 				if s.PID > 0 && proc != "" {
 					proc = fmt.Sprintf("%s (pid %d)", proc, s.PID)
 				}
+				severity := ""
 				risk := ""
 				if s.IsRisky {
-					risk = ":warning: " + s.RiskReason
+					severity = string(s.RiskLevel)
+					risk = s.RiskReason
 				}
-				p("| %d | %s | %s | %s | %s |\n",
-					s.Port, s.Protocol, s.BindAddr, mdSafe(proc), mdSafe(risk))
+				p("| %d | %s | %s | %s | %s | %s |\n",
+					s.Port, s.Protocol, s.BindAddr, mdSafe(proc), severity, mdSafe(risk))
 			}
 			p("\n")
 		}

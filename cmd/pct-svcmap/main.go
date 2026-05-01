@@ -19,12 +19,15 @@ func main() {
 	nodeFlag := flag.String("node", defaultHostname(), "Proxmox node name")
 	workersFlag := flag.Int("workers", 10, "Concurrent worker count")
 	timeoutFlag := flag.Int("timeout", 5, "Per-exec timeout in seconds")
-	reportFlag := flag.String("report", "", "Output format: md, json")
+	reportFlag := flag.String("report", "", "Report type: md, json, summary, security, security-full")
+	formatFlag := flag.String("format", "md", "Output format for summary/security reports: md, json")
 	outputFlag := flag.String("output", "", "Write report to file (default: stdout)")
 	tagFlag := flag.Bool("tag", false, "Apply auto-generated tags to guests")
 	dryRunFlag := flag.Bool("dry-run", false, "Show tags that would be applied (requires --tag)")
+	tagCategoriesFlag := flag.String("tag-categories", "all", "Tag categories: type,ports,docker,security,network,all")
 	filterFlag := flag.String("filter", "", "Filter by guest name glob pattern (filepath.Match)")
 	includeStoppedFlag := flag.Bool("include-stopped", false, "Include stopped/paused guests")
+	nmapFlag := flag.String("nmap", "", "nmap cross-validation mode: quick, default, full")
 	verboseFlag := flag.Bool("verbose", false, "Verbose logging to stderr")
 
 	flag.Parse()
@@ -33,10 +36,25 @@ func main() {
 		fmt.Fprintln(os.Stderr, "error: --dry-run requires --tag")
 		os.Exit(1)
 	}
-	if *reportFlag != "" && *reportFlag != "md" && *reportFlag != "json" {
-		fmt.Fprintln(os.Stderr, "error: --report must be 'md' or 'json'")
+	validReports := map[string]bool{
+		"": true, "md": true, "json": true,
+		"summary": true, "security": true, "security-full": true,
+	}
+	if !validReports[*reportFlag] {
+		fmt.Fprintln(os.Stderr, "error: --report must be md, json, summary, security, or security-full")
 		os.Exit(1)
 	}
+	if *formatFlag != "md" && *formatFlag != "json" {
+		fmt.Fprintln(os.Stderr, "error: --format must be md or json")
+		os.Exit(1)
+	}
+	validNmap := map[string]bool{"": true, "quick": true, "default": true, "full": true}
+	if !validNmap[*nmapFlag] {
+		fmt.Fprintln(os.Stderr, "error: --nmap must be quick, default, or full")
+		os.Exit(1)
+	}
+
+	categories := tagger.ParseCategories(*tagCategoriesFlag)
 
 	execCfg := proxmox.ExecConfig{
 		TimeoutSecs: *timeoutFlag,
@@ -53,10 +71,12 @@ func main() {
 		IncludeStopped: *includeStoppedFlag,
 		FilterGlob:     *filterFlag,
 		Verbose:        *verboseFlag,
+		NmapMode:       *nmapFlag,
 	}
 	mergeCfg := tagger.MergeConfig{
-		DryRun:  *dryRunFlag,
-		Verbose: *verboseFlag,
+		DryRun:     *dryRunFlag,
+		Verbose:    *verboseFlag,
+		Categories: categories,
 	}
 
 	start := time.Now()
@@ -66,9 +86,9 @@ func main() {
 	}
 	duration := time.Since(start)
 
-	// Generate tags into each result (always, even if not writing)
+	// Generate tags into each result
 	for i := range results {
-		results[i].GeneratedTags = tagger.GenerateTags(results[i])
+		results[i].GeneratedTags = tagger.GenerateTags(results[i], categories)
 	}
 
 	// Apply tags if requested
@@ -77,14 +97,11 @@ func main() {
 		for _, result := range results {
 			gtype := proxmox.GuestType(result.GuestType)
 			diff, applyErr := tagger.ApplyTags(result, nodeClient, gtype, mergeCfg)
-			if applyErr != nil {
-				if *verboseFlag {
-					log.Printf("tagging failed for %s (%d): %v", result.Name, result.VMID, applyErr)
-				}
+			if applyErr != nil && *verboseFlag {
+				log.Printf("tagging failed for %s (%d): %v", result.Name, result.VMID, applyErr)
 			}
 			diffs = append(diffs, diff)
 		}
-		// Mark applied results
 		diffMap := map[int]bool{}
 		for _, d := range diffs {
 			if d.WouldChange && !mergeCfg.DryRun {
@@ -110,17 +127,35 @@ func main() {
 	}
 
 	// Render report
+	var renderErr error
 	switch *reportFlag {
 	case "md":
-		if err := reporter.RenderMarkdown(out, results, diffs, *nodeFlag, duration); err != nil {
-			log.Fatalf("markdown render failed: %v", err)
-		}
+		renderErr = reporter.RenderMarkdown(out, results, diffs, *nodeFlag, duration)
 	case "json":
-		if err := reporter.RenderJSON(out, results, diffs, *nodeFlag, duration); err != nil {
-			log.Fatalf("json render failed: %v", err)
+		renderErr = reporter.RenderJSON(out, results, diffs, *nodeFlag, duration)
+	case "summary":
+		if *formatFlag == "json" {
+			renderErr = reporter.RenderSummaryJSON(out, results, *nodeFlag, duration)
+		} else {
+			renderErr = reporter.RenderSummaryMarkdown(out, results, *nodeFlag, duration)
+		}
+	case "security":
+		if *formatFlag == "json" {
+			renderErr = reporter.RenderSecurityJSON(out, results, *nodeFlag, duration)
+		} else {
+			renderErr = reporter.RenderSecurityMarkdown(out, results, *nodeFlag, duration)
+		}
+	case "security-full":
+		if *formatFlag == "json" {
+			renderErr = reporter.RenderSecurityFullJSON(out, results, *nodeFlag, duration)
+		} else {
+			renderErr = reporter.RenderSecurityFullMarkdown(out, results, *nodeFlag, duration)
 		}
 	default:
 		printSummaryTable(results, diffs, duration)
+	}
+	if renderErr != nil {
+		log.Fatalf("render failed: %v", renderErr)
 	}
 }
 

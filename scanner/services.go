@@ -232,24 +232,51 @@ func hexToIP(hexStr string) (string, error) {
 	return fmt.Sprintf("%d.%d.%d.%d", b[3], b[2], b[1], b[0]), nil
 }
 
-var riskyPorts = map[int]string{
-	21:   "FTP — plaintext credentials",
-	23:   "Telnet — plaintext protocol",
-	3306: "MySQL — unencrypted, world-accessible",
-	5432: "PostgreSQL — unencrypted, world-accessible",
-	6379: "Redis — unauthenticated by default",
+type riskyPortDef struct {
+	reason      string
+	level       RiskLevel
+	remediation string
+}
+
+var riskyPorts = map[int]riskyPortDef{
+	21:    {"FTP — plaintext credentials", RiskHigh, "Disable FTP; use SFTP (port 22) instead"},
+	23:    {"Telnet — plaintext protocol", RiskCritical, "Disable Telnet; replace with SSH"},
+	111:   {"RPCbind — exposed portmapper", RiskMedium, "Block with firewall rules or disable if NFS/NIS not needed"},
+	139:   {"NetBIOS/SMB — file sharing exposed", RiskMedium, "Restrict with firewall; use VPN for remote access"},
+	445:   {"SMB — file sharing exposed", RiskMedium, "Restrict with firewall; use VPN for remote access"},
+	2375:  {"Docker API — unauthenticated, no TLS", RiskCritical, "Enable TLS (--tlsverify) or bind to 127.0.0.1 only; never expose to internet"},
+	3306:  {"MySQL/MariaDB — world-accessible", RiskHigh, "Bind to localhost or require SSL; use firewall rules for remote access"},
+	5432:  {"PostgreSQL — world-accessible", RiskHigh, "Bind to localhost or require SSL; configure pg_hba.conf"},
+	6379:  {"Redis — unauthenticated by default", RiskHigh, "Set requirepass; bind to 127.0.0.1 or VPN interface"},
+	9200:  {"Elasticsearch — unauthenticated REST API", RiskHigh, "Enable X-Pack security; restrict to internal interfaces"},
+	9300:  {"Elasticsearch transport — internal exposure", RiskMedium, "Bind to internal interfaces; enable TLS transport"},
+	27017: {"MongoDB — unauthenticated by default", RiskHigh, "Enable authorization; bind to localhost or VPN interface"},
 }
 
 func flagRiskyServices(svcs []Service) []Service {
 	for i := range svcs {
-		if reason, ok := riskyPorts[svcs[i].Port]; ok {
+		if def, ok := riskyPorts[svcs[i].Port]; ok {
 			if svcs[i].BindAddr == "0.0.0.0" || svcs[i].BindAddr == "::" {
 				svcs[i].IsRisky = true
-				svcs[i].RiskReason = reason
+				svcs[i].RiskReason = def.reason
+				svcs[i].RiskLevel = def.level
+				svcs[i].Remediation = def.remediation
 			}
 		}
 	}
 	return svcs
+}
+
+// flagNmapRisky flags a service as risky based on port alone (no bind-addr check).
+// Used for nmap-discovered services where network reachability is confirmed.
+func flagNmapRisky(svc Service) Service {
+	if def, ok := riskyPorts[svc.Port]; ok {
+		svc.IsRisky = true
+		svc.RiskReason = def.reason
+		svc.RiskLevel = def.level
+		svc.Remediation = def.remediation
+	}
+	return svc
 }
 
 func execInGuest(guest proxmox.Guest, client *proxmox.NodeClient, args ...string) ([]byte, error) {
