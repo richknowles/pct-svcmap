@@ -108,6 +108,9 @@ func RenderMarkdown(w io.Writer, results []scanner.GuestScanResult,
 		if len(r.IPs) > 0 {
 			p("**IPs:** %s  \n", strings.Join(r.IPs, ", "))
 		}
+		if len(r.Domains) > 0 {
+			p("**Domains:** %s  \n", strings.Join(r.Domains, ", "))
+		}
 		p("**Detection:** %s  \n", string(r.DetectionMethod))
 
 		existingTags := tagger.ParseTagString(r.ExistingTags)

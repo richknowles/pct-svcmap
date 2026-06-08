@@ -107,6 +107,28 @@ func (c *NodeClient) SetGuestTags(vmid int, gtype GuestType, tags string) error 
 	return err
 }
 
+// GetGuestNotes reads the description/notes field from a guest's Proxmox config.
+func (c *NodeClient) GetGuestNotes(vmid int, gtype GuestType) (string, error) {
+	path := fmt.Sprintf("/nodes/%s/%s/%d/config", c.Node, string(gtype), vmid)
+	data, err := RunCommand(c.Cfg, "pvesh", "get", path, "--output-format", "json")
+	if err != nil {
+		return "", err
+	}
+	var cfg GuestConfigEntry
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return "", fmt.Errorf("parse guest config: %w", err)
+	}
+	return cfg.Description, nil
+}
+
+// SetGuestNotes writes the description/notes field for a guest via pvesh.
+// The notes string is passed as a direct argument — no shell interpretation.
+func (c *NodeClient) SetGuestNotes(vmid int, gtype GuestType, notes string) error {
+	path := fmt.Sprintf("/nodes/%s/%s/%d/config", c.Node, string(gtype), vmid)
+	_, err := RunCommand(c.Cfg, "pvesh", "set", path, "--description", notes)
+	return err
+}
+
 func parseIPsFromLXC(data []byte) ([]string, error) {
 	var entries []IPAddrEntry
 	if err := json.Unmarshal(data, &entries); err != nil {

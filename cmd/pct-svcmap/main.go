@@ -23,8 +23,10 @@ func main() {
 	formatFlag := flag.String("format", "md", "Output format for summary/security reports: md, json")
 	outputFlag := flag.String("output", "", "Write report to file (default: stdout)")
 	tagFlag := flag.Bool("tag", false, "Apply auto-generated tags to guests")
-	dryRunFlag := flag.Bool("dry-run", false, "Show tags that would be applied (requires --tag)")
+	dryRunFlag := flag.Bool("dry-run", false, "Show what would be applied (requires --tag or --notes)")
 	tagCategoriesFlag := flag.String("tag-categories", "all", "Tag categories: type,ports,docker,security,network,all")
+	notesFlag := flag.Bool("notes", false, "Write auto-generated Markdown to each guest's Proxmox notes field")
+	notesFormatFlag := flag.String("notes-format", "all", "Notes sections: links,alerts,domains,all")
 	filterFlag := flag.String("filter", "", "Filter by guest name glob pattern (filepath.Match)")
 	includeStoppedFlag := flag.Bool("include-stopped", false, "Include stopped/paused guests")
 	nmapFlag := flag.String("nmap", "", "nmap cross-validation mode: quick, default, full")
@@ -32,8 +34,8 @@ func main() {
 
 	flag.Parse()
 
-	if *dryRunFlag && !*tagFlag {
-		fmt.Fprintln(os.Stderr, "error: --dry-run requires --tag")
+	if *dryRunFlag && !*tagFlag && !*notesFlag {
+		fmt.Fprintln(os.Stderr, "error: --dry-run requires --tag or --notes")
 		os.Exit(1)
 	}
 	validReports := map[string]bool{
@@ -55,6 +57,7 @@ func main() {
 	}
 
 	categories := tagger.ParseCategories(*tagCategoriesFlag)
+	notesFormats := reporter.ParseNotesFormats(*notesFormatFlag)
 
 	execCfg := proxmox.ExecConfig{
 		TimeoutSecs: *timeoutFlag,
@@ -112,6 +115,36 @@ func main() {
 			if diffMap[results[i].VMID] {
 				results[i].TagsApplied = true
 			}
+		}
+	}
+
+	// Write notes if requested
+	if *notesFlag {
+		for i := range results {
+			r := &results[i]
+			gtype := proxmox.GuestType(r.GuestType)
+			newBlock := reporter.BuildGuestNote(*r, notesFormats)
+
+			if *dryRunFlag {
+				fmt.Fprintf(os.Stderr, "--- dry-run notes for %s (%d) ---\n%s\n", r.Name, r.VMID, newBlock)
+				continue
+			}
+
+			existing, err := nodeClient.GetGuestNotes(r.VMID, gtype)
+			if err != nil {
+				if *verboseFlag {
+					log.Printf("get notes failed for %s (%d): %v", r.Name, r.VMID, err)
+				}
+				continue
+			}
+			merged := reporter.InjectNote(existing, newBlock)
+			if err := nodeClient.SetGuestNotes(r.VMID, gtype, merged); err != nil {
+				if *verboseFlag {
+					log.Printf("set notes failed for %s (%d): %v", r.Name, r.VMID, err)
+				}
+				continue
+			}
+			r.NotesApplied = true
 		}
 	}
 

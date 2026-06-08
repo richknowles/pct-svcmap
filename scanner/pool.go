@@ -129,6 +129,9 @@ func scanGuest(guest proxmox.Guest, cfg ScanConfig, client *proxmox.NodeClient) 
 		log.Printf("[%s/%d] IP fetch error: %v", guest.Name, guest.VMID, ipErr)
 	}
 
+	// Detect domains (configured name + reverse DNS)
+	result.Domains = DetectDomains(guest.Name, result.IPs)
+
 	// Detect services
 	svcs, method, svcErr := DetectServices(guest, client)
 	result.Services = svcs

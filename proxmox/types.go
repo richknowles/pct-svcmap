@@ -66,3 +66,10 @@ type QMIPAddress struct {
 	IPAddress     string `json:"ip-address"`
 	Prefix        int    `json:"prefix"`
 }
+
+// GuestConfigEntry holds relevant fields from pvesh get .../config output.
+type GuestConfigEntry struct {
+	Hostname    string `json:"hostname"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}

@@ -59,6 +59,7 @@ type GuestScanResult struct {
 	GuestType        string
 	Status           string
 	IPs              []string
+	Domains          []string
 	Services         []Service
 	DockerContainers []DockerContainer
 	DockerAvailable  bool
@@ -69,6 +70,7 @@ type GuestScanResult struct {
 	ExistingTags     string
 	GeneratedTags    []string
 	TagsApplied      bool
+	NotesApplied     bool
 }
 
 // ScanConfig holds all runtime configuration passed to the worker pool.
