@@ -129,6 +129,9 @@ func scanGuest(guest proxmox.Guest, cfg ScanConfig, client *proxmox.NodeClient) 
 		log.Printf("[%s/%d] IP fetch error: %v", guest.Name, guest.VMID, ipErr)
 	}
 
+	// Detect domains (configured name + reverse DNS)
+	result.Domains = DetectDomains(guest.Name, result.IPs)
+
 	// Detect services
 	svcs, method, svcErr := DetectServices(guest, client)
 	result.Services = svcs
@@ -146,6 +149,21 @@ func scanGuest(guest proxmox.Guest, cfg ScanConfig, client *proxmox.NodeClient) 
 	result.DockerContainers = containers
 	if dockerErr != nil && cfg.Verbose {
 		log.Printf("[%s/%d] docker: %v", guest.Name, guest.VMID, dockerErr)
+	}
+
+	// Optional nmap cross-validation
+	if cfg.NmapMode != "" && len(result.IPs) > 0 {
+		nmapSvcs, nmapErr := RunNmapScan(result.IPs, NmapMode(cfg.NmapMode), client.Cfg)
+		if nmapErr != nil {
+			if cfg.Verbose {
+				log.Printf("[%s/%d] nmap: %v", guest.Name, guest.VMID, nmapErr)
+			}
+		} else if len(nmapSvcs) > 0 {
+			result.Services = mergeNmapServices(result.Services, nmapSvcs)
+			if result.DetectionMethod == DetectionFailed {
+				result.DetectionMethod = DetectionNmap
+			}
+		}
 	}
 
 	return result

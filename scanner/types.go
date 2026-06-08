@@ -2,14 +2,13 @@ package scanner
 
 import "time"
 
-// Severity levels for risky services.
-type Severity string
+// RiskLevel categorises the severity of a risky service finding.
+type RiskLevel string
 
 const (
-	SeverityCritical Severity = "CRITICAL"
-	SeverityHigh     Severity = "HIGH"
-	SeverityMedium   Severity = "MEDIUM"
-	SeverityLow     Severity = "LOW"
+	RiskCritical RiskLevel = "CRITICAL"
+	RiskHigh     RiskLevel = "HIGH"
+	RiskMedium   RiskLevel = "MEDIUM"
 )
 
 // Service represents a single listening network service on a guest.
@@ -21,7 +20,8 @@ type Service struct {
 	PID         int
 	IsRisky     bool
 	RiskReason  string
-	Severity    Severity
+	RiskLevel   RiskLevel
+	Remediation string
 }
 
 // DockerPort is one published port mapping from a Docker container.
@@ -47,6 +47,7 @@ const (
 	DetectionSS      DetectionMethod = "ss"
 	DetectionLSOF    DetectionMethod = "lsof"
 	DetectionProcNet DetectionMethod = "proc/net"
+	DetectionNmap    DetectionMethod = "nmap"
 	DetectionFailed  DetectionMethod = "failed"
 	DetectionSkipped DetectionMethod = "skipped"
 )
@@ -58,6 +59,7 @@ type GuestScanResult struct {
 	GuestType        string
 	Status           string
 	IPs              []string
+	Domains          []string
 	Services         []Service
 	DockerContainers []DockerContainer
 	DockerAvailable  bool
@@ -68,6 +70,7 @@ type GuestScanResult struct {
 	ExistingTags     string
 	GeneratedTags    []string
 	TagsApplied      bool
+	NotesApplied     bool
 }
 
 // ScanConfig holds all runtime configuration passed to the worker pool.
@@ -78,4 +81,5 @@ type ScanConfig struct {
 	IncludeStopped bool
 	FilterGlob     string
 	Verbose        bool
+	NmapMode       string
 }

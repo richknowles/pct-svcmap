@@ -232,36 +232,51 @@ func hexToIP(hexStr string) (string, error) {
 	return fmt.Sprintf("%d.%d.%d.%d", b[3], b[2], b[1], b[0]), nil
 }
 
-var riskyPorts = map[int]riskyPortInfo{
-	21:   {Reason: "FTP — plaintext credentials", Severity: SeverityHigh, Remediation: "Disable or use SFTP/SSH"},
-	23:   {Reason: "Telnet — plaintext protocol", Severity: SeverityCritical, Remediation: "Disable immediately, use SSH instead"},
-	111:  {Reason: "RPCbind — no authentication", Severity: SeverityMedium, Remediation: "Disable or restrict to localhost"},
-	445:  {Reason: "SMB — legacy protocol with known vulnerabilities", Severity: SeverityHigh, Remediation: "Disable or firewall to trusted networks"},
-	2375: {Reason: "Docker API — unauthenticated, remote code execution risk", Severity: SeverityCritical, Remediation: "Bind to 127.0.0.1 or enable TLS with mutual auth"},
-	3306: {Reason: "MySQL — unencrypted, world-accessible", Severity: SeverityHigh, Remediation: "Bind to localhost or enable TLS"},
-	5432: {Reason: "PostgreSQL — unencrypted, world-accessible", Severity: SeverityHigh, Remediation: "Bind to localhost or enable TLS"},
-	6379: {Reason: "Redis — unauthenticated by default", Severity: SeverityCritical, Remediation: "Bind to localhost and enable requirepass"},
-	9200: {Reason: "Elasticsearch — no auth by default", Severity: SeverityCritical, Remediation: "Enable x-pack security or use firewall"},
-	27017: {Reason: "MongoDB — no auth by default", Severity: SeverityCritical, Remediation: "Enable authentication and bind to localhost"},
+type riskyPortDef struct {
+	reason      string
+	level       RiskLevel
+	remediation string
 }
 
-type riskyPortInfo struct {
-	Reason       string
-	Severity     Severity
-	Remediation  string
+var riskyPorts = map[int]riskyPortDef{
+	21:    {"FTP — plaintext credentials", RiskHigh, "Disable FTP; use SFTP (port 22) instead"},
+	23:    {"Telnet — plaintext protocol", RiskCritical, "Disable Telnet; replace with SSH"},
+	111:   {"RPCbind — exposed portmapper", RiskMedium, "Block with firewall rules or disable if NFS/NIS not needed"},
+	139:   {"NetBIOS/SMB — file sharing exposed", RiskMedium, "Restrict with firewall; use VPN for remote access"},
+	445:   {"SMB — file sharing exposed", RiskMedium, "Restrict with firewall; use VPN for remote access"},
+	2375:  {"Docker API — unauthenticated, no TLS", RiskCritical, "Enable TLS (--tlsverify) or bind to 127.0.0.1 only; never expose to internet"},
+	3306:  {"MySQL/MariaDB — world-accessible", RiskHigh, "Bind to localhost or require SSL; use firewall rules for remote access"},
+	5432:  {"PostgreSQL — world-accessible", RiskHigh, "Bind to localhost or require SSL; configure pg_hba.conf"},
+	6379:  {"Redis — unauthenticated by default", RiskHigh, "Set requirepass; bind to 127.0.0.1 or VPN interface"},
+	9200:  {"Elasticsearch — unauthenticated REST API", RiskHigh, "Enable X-Pack security; restrict to internal interfaces"},
+	9300:  {"Elasticsearch transport — internal exposure", RiskMedium, "Bind to internal interfaces; enable TLS transport"},
+	27017: {"MongoDB — unauthenticated by default", RiskHigh, "Enable authorization; bind to localhost or VPN interface"},
 }
 
 func flagRiskyServices(svcs []Service) []Service {
 	for i := range svcs {
-		if info, ok := riskyPorts[svcs[i].Port]; ok {
+		if def, ok := riskyPorts[svcs[i].Port]; ok {
 			if svcs[i].BindAddr == "0.0.0.0" || svcs[i].BindAddr == "::" {
 				svcs[i].IsRisky = true
-				svcs[i].RiskReason = info.Reason
-				svcs[i].Severity = info.Severity
+				svcs[i].RiskReason = def.reason
+				svcs[i].RiskLevel = def.level
+				svcs[i].Remediation = def.remediation
 			}
 		}
 	}
 	return svcs
+}
+
+// flagNmapRisky flags a service as risky based on port alone (no bind-addr check).
+// Used for nmap-discovered services where network reachability is confirmed.
+func flagNmapRisky(svc Service) Service {
+	if def, ok := riskyPorts[svc.Port]; ok {
+		svc.IsRisky = true
+		svc.RiskReason = def.reason
+		svc.RiskLevel = def.level
+		svc.Remediation = def.remediation
+	}
+	return svc
 }
 
 func execInGuest(guest proxmox.Guest, client *proxmox.NodeClient, args ...string) ([]byte, error) {

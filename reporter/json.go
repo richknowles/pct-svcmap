@@ -31,21 +31,23 @@ type JSONSummary struct {
 
 // JSONGuestResult is the per-guest entry in the JSON output.
 type JSONGuestResult struct {
-	VMID             int                  `json:"vmid"`
-	Name             string               `json:"name"`
-	Type             string               `json:"type"`
-	Status           string               `json:"status"`
-	IPs              []string             `json:"ips"`
-	Services         []JSONService        `json:"services"`
-	DockerAvailable  bool                 `json:"docker_available"`
+	VMID             int                   `json:"vmid"`
+	Name             string                `json:"name"`
+	Type             string                `json:"type"`
+	Status           string                `json:"status"`
+	IPs              []string              `json:"ips"`
+	Domains          []string              `json:"domains,omitempty"`
+	Services         []JSONService         `json:"services"`
+	DockerAvailable  bool                  `json:"docker_available"`
 	DockerContainers []JSONDockerContainer `json:"docker_containers"`
-	AgentAvailable   bool                 `json:"agent_available,omitempty"`
-	DetectionMethod  string               `json:"detection_method"`
-	ExistingTags     []string             `json:"existing_tags"`
-	GeneratedTags    []string             `json:"generated_tags"`
-	MergedTags       []string             `json:"merged_tags,omitempty"`
-	TagsApplied      bool                 `json:"tags_applied"`
-	ScanError        string               `json:"scan_error,omitempty"`
+	AgentAvailable   bool                  `json:"agent_available,omitempty"`
+	DetectionMethod  string                `json:"detection_method"`
+	ExistingTags     []string              `json:"existing_tags"`
+	GeneratedTags    []string              `json:"generated_tags"`
+	MergedTags       []string              `json:"merged_tags,omitempty"`
+	TagsApplied      bool                  `json:"tags_applied"`
+	NotesApplied     bool                  `json:"notes_applied,omitempty"`
+	ScanError        string                `json:"scan_error,omitempty"`
 }
 
 // JSONService is the JSON representation of a discovered service.
@@ -57,7 +59,8 @@ type JSONService struct {
 	PID         int    `json:"pid,omitempty"`
 	IsRisky     bool   `json:"is_risky"`
 	RiskReason  string `json:"risk_reason,omitempty"`
-	Severity    string `json:"severity,omitempty"`
+	RiskLevel   string `json:"risk_level,omitempty"`
+	Remediation string `json:"remediation,omitempty"`
 }
 
 // JSONDockerContainer is the JSON representation of a Docker container.
@@ -136,7 +139,7 @@ func toJSONGuest(r scanner.GuestScanResult, hasDiff bool, diff tagger.TagDiff) J
 			Port: s.Port, Protocol: s.Protocol, BindAddr: s.BindAddr,
 			ProcessName: s.ProcessName, PID: s.PID,
 			IsRisky: s.IsRisky, RiskReason: s.RiskReason,
-			Severity: string(s.Severity),
+			RiskLevel: string(s.RiskLevel), Remediation: s.Remediation,
 		}
 	}
 
@@ -164,6 +167,7 @@ func toJSONGuest(r scanner.GuestScanResult, hasDiff bool, diff tagger.TagDiff) J
 	g := JSONGuestResult{
 		VMID: r.VMID, Name: r.Name, Type: r.GuestType, Status: r.Status,
 		IPs:              r.IPs,
+		Domains:          r.Domains,
 		Services:         svcs,
 		DockerAvailable:  r.DockerAvailable,
 		DockerContainers: containers,
@@ -172,6 +176,7 @@ func toJSONGuest(r scanner.GuestScanResult, hasDiff bool, diff tagger.TagDiff) J
 		ExistingTags:     existingTags,
 		GeneratedTags:    generatedTags,
 		TagsApplied:      r.TagsApplied,
+		NotesApplied:     r.NotesApplied,
 		ScanError:        r.ScanError,
 	}
 	if hasDiff {

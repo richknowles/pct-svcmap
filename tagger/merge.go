@@ -12,8 +12,9 @@ import (
 
 // MergeConfig controls tagging behavior.
 type MergeConfig struct {
-	DryRun  bool
-	Verbose bool
+	DryRun     bool
+	Verbose    bool
+	Categories []TagCategory
 }
 
 // TagDiff represents the before/after tag state for one guest.
@@ -33,7 +34,7 @@ func ApplyTags(result scanner.GuestScanResult, client *proxmox.NodeClient,
 	gtype proxmox.GuestType, cfg MergeConfig) (TagDiff, error) {
 
 	existing := ParseTagString(result.ExistingTags)
-	generated := GenerateTags(result)
+	generated := GenerateTags(result, cfg.Categories)
 	newOnly := diffTags(existing, generated)
 	merged := unionTags(existing, generated)
 
