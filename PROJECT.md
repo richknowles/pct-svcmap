@@ -1,4 +1,4 @@
-# pct-svcmap — Claude Instructions
+# pct-svcmap — Project Instructions
 
 ## Git Identity — MANDATORY
 Before making ANY commit, run:
